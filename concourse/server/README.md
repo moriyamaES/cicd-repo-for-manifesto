@@ -1558,3 +1558,340 @@
     ```sh
     $ cd ~/cicd-repo-for-manifesto/concourse/pipline
     ```
+
+- 変更点は以下
+
+    ```sh
+    $ git log --graph --decorate=short --oneline | head -2
+    * ea68b76 (HEAD -> main, origin/main, origin/HEAD) Update pipline
+    * 2db222d Update pipline
+    ```
+
+    ```sh
+    $ git diff 2db222d ea68b76 --name-only 
+    concourse/pipline/pipeline-bump-source-code-version.yml
+    ```
+
+    ```sh
+    $ git diff 2db222d ea68b76 -- ./concourse/pipline/pipeline-bump-source-code-version.yml 
+
+    ```
+
+    - 結果
+    
+        ```diff
+        diff --git a/concourse/pipline/pipeline-bump-source-code-version.yml b/concourse/pipline/pipeline-bump-source-code-version.yml
+        index c67054e..44eafbb 100644
+        --- a/concourse/pipline/pipeline-bump-source-code-version.yml
+        +++ b/concourse/pipline/pipeline-bump-source-code-version.yml
+        @@ -1,6 +1,6 @@
+        ---
+        resources:
+        -  - name: version-bump-repository
+        +  - name: repository-with-a-version-bump
+            type: git
+            source:
+            branch: main
+        @@ -11,7 +11,7 @@ resources:
+        jobs:
+        - name: bump-version
+            plan:
+        -      - get: version-bump-repository
+        +      - get: repository-with-a-version-bump
+            - task: bump-version
+                config:
+                platform: linux
+        @@ -21,9 +21,9 @@ jobs:
+                    source: {repository: getourneau/alpine-bash-git}
+                # nputsとoutputsは、同じ名前にしないと正常動作しない模様
+                inputs:
+        -            - name: version-bump-repository
+        +            - name: repository-with-a-version-bump
+                outputs:
+        -            - name: version-bump-repository
+        +            - name: repository-with-a-version-bump
+                run:
+                    path: /bin/sh
+                    args:
+        @@ -32,10 +32,10 @@ jobs:
+        
+                        # この時点ではconcorseがgit cloneを実行してるため、git cloneの実行は不要。
+                        # gitのローカルリポジトリのディレクトリに移動
+        -                cd version-bump-repository
+        +                cd repository-with-a-version-bump
+        
+                        # 現在のバージョンを取得
+        -                current_version=$(cat ./.version/number)
+        +                current_version=$(cat ./version/number)
+                        
+                        # バージョンをバンプするタイプを指定
+                        BUMP_TYPE=${BUMP_TYPE:-"major"}  # デフォルトはメジャーバージョンをバンプ
+        @@ -76,18 +76,18 @@ jobs:
+                        fi
+                
+                        # 新しいバージョンをファイルに書き込む
+        -                echo "$new_version" > ./.version/number
+        -                cat ./.version/number
+        +                echo "$new_version" > ./version/number
+        +                cat ./version/number
+        
+                        # コミットしタグを付加する
+                        git config --global user.email "concourse@local" # メールアドレスは必須（ユーザ名は任意）
+        -                git add ./.version/number
+        +                git add ./version/number
+                        git commit -m "Bump version to v$new_version"
+                        git tag v$new_version
+                params:
+                    BUMP_TYPE: ((bump-type))
+        
+            # このPUTで、ローカルリポジトリからリポジトリへのpushを実行するため、git pushの実行は不要。
+        -      - put: version-bump-repository
+        +      - put: repository-with-a-version-bump
+                params:
+        -          repository: version-bump-repository
+        +          repository: repository-with-a-version-bump
+        
+        ```
+
+- 変更後
+
+    ```sh
+    # cat ./concourse/pipline/pipeline-bump-source-code-version.yml 
+    ---
+    resources:
+    - name: repository-with-a-version-bump
+        type: git
+        source:
+        branch: main
+        # sshで認証するため、uriはsshのuriに設定する必要がある(httpsだと正常動作しない）
+        uri: git@github.com:moriyamaES/cicd-repo-for-source-code.git
+        # GitHubに接続するための秘密鍵はVaultで管理
+        private_key: ((private-key))
+    jobs:
+    - name: bump-version
+        plan:
+        - get: repository-with-a-version-bump
+        - task: bump-version
+            config:
+            platform: linux
+            image_resource:
+                type: docker-image
+                # bashとgitが実行できるコンテナをpull
+                source: {repository: getourneau/alpine-bash-git}
+            # nputsとoutputsは、同じ名前にしないと正常動作しない模様
+            inputs:
+                - name: repository-with-a-version-bump
+            outputs:
+                - name: repository-with-a-version-bump
+            run:
+                path: /bin/sh
+                args:
+                - -exc
+                - |
+
+                    # この時点ではconcorseがgit cloneを実行してるため、git cloneの実行は不要。
+                    # gitのローカルリポジトリのディレクトリに移動
+                    cd repository-with-a-version-bump
+
+                    # 現在のバージョンを取得
+                    current_version=$(cat ./version/number)
+                    
+                    # バージョンをバンプするタイプを指定
+                    BUMP_TYPE=${BUMP_TYPE:-"major"}  # デフォルトはメジャーバージョンをバンプ
+                    
+                    # current_version が空文字列の場合
+                    if [ "$current_version" = "" ]; then
+                        # 適切な初期バージョンを設定
+                        if [ "$BUMP_TYPE" = "major" ]; then
+                        new_version="1.0.0"
+                        elif [ "$BUMP_TYPE" = "minor" ]; then
+                        new_version="0.1.0"
+                        elif [ "$BUMP_TYPE" = "patch" ]; then
+                        new_version="0.0.1"
+                        else
+                        echo "Invalid bump_type specified."
+                        exit 1
+                        fi
+                    else
+                    # バージョンをバンプする
+                    IFS_SAVE=$IFS
+                    IFS='.'
+                    set $current_version
+                    IFS=$IFS_SAVE
+                    major="$1"
+                    minor="$2"
+                    patch="$3"
+                    if [ "$BUMP_TYPE" = "major" ]; then
+                        major=$((major + 1))
+                        minor=0
+                        patch=0
+                    elif [ "$BUMP_TYPE" = "minor" ]; then
+                        minor=$((minor + 1))
+                        patch=0
+                    elif [ "$BUMP_TYPE" = "patch" ]; then
+                        patch=$((patch + 1))
+                    fi
+                    new_version="$major.$minor.$patch"
+                    fi
+            
+                    # 新しいバージョンをファイルに書き込む
+                    echo "$new_version" > ./version/number
+                    cat ./version/number
+
+                    # コミットしタグを付加する
+                    git config --global user.email "concourse@local" # メールアドレスは必須（ユーザ名は任意）
+                    git add ./version/number
+                    git commit -m "Bump version to v$new_version"
+                    git tag v$new_version
+            params:
+                BUMP_TYPE: ((bump-type))
+
+        # このPUTで、ローカルリポジトリからリポジトリへのpushを実行するため、git pushの実行は不要。
+        - put: repository-with-a-version-bump
+            params:
+            repository: repository-with-a-version-bump
+    ```
+
+- パイプラインを削除する
+
+    ```sh
+    $ fly -t tutorial destroy-pipeline -p bump-source-code-minor-version -n
+    ```
+
+- パイプラインを作成
+
+    ```sh
+    $ cd ~/cicd-repo-for-manifesto/concourse/pipline
+    ```
+
+    ```sh
+    $ fly -t tutorial set-pipeline -p bump-source-code-minor-version -c pipeline-bump-source-code-version.yml -v bump-type=minor -n
+    ```
+
+    - 結果
+
+- リソースのチェク
+
+    ```sh
+    $ fly -t tutorial check-resource -r bump-source-code-minor-version/version-bump-repository
+    ```
+
+    - 結果
+
+        ```sh
+        resources:
+        resource repository-with-a-version-bump has been added:
+        + name: repository-with-a-version-bump
+        + source:
+        +   branch: main
+        +   private_key: ((private-key))
+        +   uri: git@github.com:moriyamaES/cicd-repo-for-source-code.git
+        + type: git
+        
+        jobs:
+        job bump-version has been added:
+        + name: bump-version
+        + plan:
+        + - get: repository-with-a-version-bump
+        + - config:
+        +     image_resource:
+        +       name: ""
+        +       source:
+        +         repository: getourneau/alpine-bash-git
+        +       type: docker-image
+        +     inputs:
+        +     - name: repository-with-a-version-bump
+        +     outputs:
+        +     - name: repository-with-a-version-bump
+        +     params:
+        +       BUMP_TYPE: minor
+        +     platform: linux
+        +     run:
+        +       args:
+        +       - -exc
+        +       - |2
+        + 
+        +         # この時点ではconcorseがgit cloneを実行してるため、git cloneの実行は不要。
+        +         # gitのローカルリポジトリのディレクトリに移動
+        +         cd repository-with-a-version-bump
+        + 
+        +         # 現在のバージョンを取得
+        +         current_version=$(cat ./version/number)
+        + 
+        +         # バージョンをバンプするタイプを指定
+        +         BUMP_TYPE=${BUMP_TYPE:-"major"}  # デフォルトはメジャーバージョンをバンプ
+        + 
+        +         # current_version が空文字列の場合
+        +         if [ "$current_version" = "" ]; then
+        +             # 適切な初期バージョンを設定
+        +             if [ "$BUMP_TYPE" = "major" ]; then
+        +               new_version="1.0.0"
+        +             elif [ "$BUMP_TYPE" = "minor" ]; then
+        +               new_version="0.1.0"
+        +             elif [ "$BUMP_TYPE" = "patch" ]; then
+        +               new_version="0.0.1"
+        +             else
+        +               echo "Invalid bump_type specified."
+        +               exit 1
+        +             fi
+        +         else
+        +           # バージョンをバンプする
+        +           IFS_SAVE=$IFS
+        +           IFS='.'
+        +           set $current_version
+        +           IFS=$IFS_SAVE
+        +           major="$1"
+        +           minor="$2"
+        +           patch="$3"
+        +           if [ "$BUMP_TYPE" = "major" ]; then
+        +             major=$((major + 1))
+        +             minor=0
+        +             patch=0
+        +           elif [ "$BUMP_TYPE" = "minor" ]; then
+        +             minor=$((minor + 1))
+        +             patch=0
+        +           elif [ "$BUMP_TYPE" = "patch" ]; then
+        +             patch=$((patch + 1))
+        +           fi
+        +           new_version="$major.$minor.$patch"
+        +         fi
+        + 
+        +         # 新しいバージョンをファイルに書き込む
+        +         echo "$new_version" > ./version/number
+        +         cat ./version/number
+        + 
+        +         # コミットしタグを付加する
+        +         git config --global user.email "concourse@local" # メールアドレスは必須（ユーザ名は任意）
+        +         git add ./version/number
+        +         git commit -m "Bump version to v$new_version"
+        +         git tag v$new_version
+        +       path: /bin/sh
+        +   task: bump-version
+        + - params:
+        +     repository: repository-with-a-version-bump
+        +   put: repository-with-a-version-bump
+        
+        pipeline name: bump-source-code-minor-version
+
+        pipeline created!
+        you can view your pipeline here: http://localhost:8080/teams/main/pipelines/bump-source-code-minor-version
+
+        the pipeline is currently paused. to unpause, either:
+        - run the unpause-pipeline command:
+            fly -t tutorial unpause-pipeline -p bump-source-code-minor-version
+        - click play next to the pipeline in the web ui
+        ```
+
+- パイプラインの実行
+
+    ```sh
+    $ fly -t tutorial unpause-pipeline -p bump-source-code-minor-version
+    unpaused 'bump-source-code-minor-version'
+    ```
+
+    ```sh
+    $ fly -t tutorial trigger-job -j bump-source-code-minor-version/bump-version -w
+    ```
+
+    - 結果
+
