@@ -1,6 +1,6 @@
 ---
 resources:
-  - name: version-bump-repository
+  - name: repository-with-a-version-bump
     type: git
     source:
       branch: main
@@ -11,7 +11,7 @@ resources:
 jobs:
   - name: bump-version
     plan:
-      - get: version-bump-repository
+      - get: repository-with-a-version-bump
       - task: bump-version
         config:
           platform: linux
@@ -21,9 +21,9 @@ jobs:
             source: {repository: getourneau/alpine-bash-git}
           # nputsとoutputsは、同じ名前にしないと正常動作しない模様
           inputs:
-            - name: version-bump-repository
+            - name: repository-with-a-version-bump
           outputs:
-            - name: version-bump-repository
+            - name: repository-with-a-version-bump
           run:
             path: /bin/sh
             args:
@@ -32,10 +32,10 @@ jobs:
 
                 # この時点ではconcorseがgit cloneを実行してるため、git cloneの実行は不要。
                 # gitのローカルリポジトリのディレクトリに移動
-                cd version-bump-repository
+                cd repository-with-a-version-bump
 
                 # 現在のバージョンを取得
-                current_version=$(cat ./.version/number)
+                current_version=$(cat ./version/number)
                 
                 # バージョンをバンプするタイプを指定
                 BUMP_TYPE=${BUMP_TYPE:-"major"}  # デフォルトはメジャーバージョンをバンプ
@@ -76,18 +76,18 @@ jobs:
                 fi
           
                 # 新しいバージョンをファイルに書き込む
-                echo "$new_version" > ./.version/number
-                cat ./.version/number
+                echo "$new_version" > ./version/number
+                cat ./version/number
 
                 # コミットしタグを付加する
                 git config --global user.email "concourse@local" # メールアドレスは必須（ユーザ名は任意）
-                git add ./.version/number
+                git add ./version/number
                 git commit -m "Bump version to v$new_version"
                 git tag v$new_version
           params:
             BUMP_TYPE: ((bump-type))
 
       # このPUTで、ローカルリポジトリからリポジトリへのpushを実行するため、git pushの実行は不要。
-      - put: version-bump-repository
+      - put: repository-with-a-version-bump
         params:
-          repository: version-bump-repository
+          repository: repository-with-a-version-bump
