@@ -35,7 +35,7 @@ jobs:
                 cd repository-with-a-version-bump
 
                 # 現在のバージョンを取得
-                current_version=$(cat ./version/number)
+                current_version=$(cat ./.version/number)
                 
                 # バージョンをバンプするタイプを指定
                 BUMP_TYPE=${BUMP_TYPE:-"major"}  # デフォルトはメジャーバージョンをバンプ
@@ -76,12 +76,12 @@ jobs:
                 fi
           
                 # 新しいバージョンをファイルに書き込む
-                echo "$new_version" > ./version/number
-                cat ./version/number
+                echo "$new_version" > ./.version/number
+                cat ./.version/number
 
                 # コミットしタグを付加する
                 git config --global user.email "concourse@local" # メールアドレスは必須（ユーザ名は任意）
-                git add ./version/number
+                git add ./.version/number
                 git commit -m "Bump version to v$new_version"
                 git tag v$new_version
           params:
