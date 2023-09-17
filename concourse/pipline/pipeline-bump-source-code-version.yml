@@ -1,5 +1,10 @@
 ---
 resources:
+  - name: repository-of-script
+    type: git
+    source:
+      uri: git@github.com:moriyamaES/cicd-repo-for-manifesto.git
+      branch: main
   - name: repository-with-a-version-bump
     type: git
     source:
