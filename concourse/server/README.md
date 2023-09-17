@@ -2379,4 +2379,68 @@
                 repository: repository-with-a-version-bump
         ```
 
+## Concourse WebUIにログインする
+
+- Concourse WebUIにログインする
+
+    ```sh
+    $ fly --target tutorial login --concourse-url http://localhost:8080
+    ```
+
+    - 操作
+    - `http://localhost:8080/login?fly_port=43269` でホストOSのブラウザにアクセスし、表示されたtokenを貼り付ける
+    - ユーザID: `test`、パスワード: `test` とする
+    - 上記操作をすると、Concourse CI のWeb UIにログインできる
+
+        ```
+        logging in to team 'main'
+
+        navigate to the following URL in your browser:
+
+        http://localhost:8080/login?fly_port=43269
+
+        or enter token manually (input hidden): 
+        target saved
+
+## Concourse にパイプラインを作成する
+
+- パイプラインを削除する
+
+    ```sh
+    $ fly -t tutorial destroy-pipeline -p bump-source-code-minor-version -n
+    ```
+
+- パイプラインを作成
+
+    ```sh
+    $ cd ~/cicd-repo-for-manifesto/concourse/pipline
+    ```
+
+    ```sh
+    $ fly -t tutorial set-pipeline -p bump-source-code-minor-version -c pipeline-bump-source-code-version.yml -v bump-type=minor -n
+    ```
+
+    - 結果
+
+- リソースのチェク
+
+    ```sh
+    $ fly -t tutorial check-resource -r bump-source-code-minor-version/version-bump-repository
+    ```
+
+    - 結果
+
+
+- パイプラインの実行
+
+    ```sh
+    $ fly -t tutorial unpause-pipeline -p bump-source-code-minor-version
+    unpaused 'bump-source-code-minor-version'
+    ```
+
+    ```sh
+    $ fly -t tutorial trigger-job -j bump-source-code-minor-version/bump-version -w
+    ```
+
+    - 結果
 
