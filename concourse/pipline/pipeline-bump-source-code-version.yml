@@ -11,13 +11,11 @@ resources:
   - name: repository-of-script
     type: git
     source:
-      # 書込みを行うgitリポジトリのuriは、httpsで設定する必要がある(sshのuriの場合、正常動作しない)
+      # 読込みのみならば、uriはhttpでOK(秘密鍵が不要)
       uri: https://github.com/moriyamaES/cicd-repo-for-manifesto.git
-      # uri: git@github.com:moriyamaES/cicd-repo-for-manifesto.git
       branch: main
 jobs:
   - name: bump-version
-    # public: true
     plan:
       - get: repository-with-a-version-bump
       - get: repository-of-script
@@ -28,7 +26,7 @@ jobs:
             type: docker-image
             # bashとgitが実行できるコンテナをpull
             source: {repository: getourneau/alpine-bash-git}
-          # gitリポジトリへの書込みを行う場合、nputsとoutputsは、同じ名前にしないと正常動作しない模様
+          # gitリポジトリへの書込みを行う場合、inputsとoutputsは、同じ名前にしないと正常動作しない模様
           inputs:
             - name: repository-with-a-version-bump
             - name: repository-of-script
