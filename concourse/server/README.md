@@ -2331,6 +2331,51 @@
     git tag v$new_versio
     ```
 
+- 実行権限を与える必要が有る模様
+
+    - 公式サイトのスクリプトには実行権限が設定されている。
+
+    ```sh
+    $ cd ~/concourse-tutorial/tutorials/basic/task-outputs-to-inputs/
+    [root@control-plane ~/concourse-tutorial/tutorials/basic/task-outputs-to-inputs (master)]
+    $ ll
+    合計 16
+    -rwxr-xr-x. 1 root root  173  8月 31 21:27 create_some_files.sh
+    -rw-r--r--. 1 root root 1005  8月 31 21:27 pipeline.yml
+    -rwxr-xr-x. 1 root root   27  8月 31 21:27 show_files.sh
+    -rwxr-xr-x. 1 root root  421  8月 31 21:27 test.sh
+    ```
+
+    - 自分の作成したスクリプトには実行実行権限が設定されていない
+
+    ```sh
+    [root@control-plane ~/concourse-tutorial/tutorials/basic/task-outputs-to-inputs (master)]
+    $ cd ~/cicd-repo-for-manifesto/concourse/pipline/
+    [root@control-plane ~/cicd-repo-for-manifesto/concourse/pipline (main *)]
+    $ ll
+    合計 16
+    -rw-r--r--. 1 root root 1616  9月 17 12:12 bump-version.sh
+    -rw-r--r--. 1 root root 3658  9月 17 00:07 pipeline-bump-soft-version.yml
+    -rw-r--r--. 1 root root 3781  9月 17 10:59 pipeline-bump-source-code-version-include-script.yml
+    -rw-r--r--. 1 root root 1927  9月 17 13:23 pipeline-bump-source-code-version.yml
+    ```
+    
+- 実行権限を設定
+
+    ```sh
+    $ chmod 755 bump-version.sh 
+    [root@control-plane ~/cicd-repo-for-manifesto/concourse/pipline (main *)]
+    $ ll
+    合計 16
+    -rwxr-xr-x. 1 root root 1616  9月 17 12:12 bump-version.sh
+    -rw-r--r--. 1 root root 3658  9月 17 00:07 pipeline-bump-soft-version.yml
+    -rw-r--r--. 1 root root 3781  9月 17 10:59 pipeline-bump-source-code-version-include-script.yml
+    -rw-r--r--. 1 root root 1927  9月 17 13:23 pipeline-bump-source-code-version.yml
+    ```
+
+
+
+
 - パイプライン用YAMLの中身は以下
 
     - 参考
@@ -2422,14 +2467,68 @@
 
     - 結果
 
-- リソースのチェク
+        ```sh
+        resources:
+        resource repository-with-a-version-bump has been added:
+        + name: repository-with-a-version-bump
+        + source:
+        +   branch: main
+        +   private_key: ((private-key))
+        +   uri: git@github.com:moriyamaES/cicd-repo-for-source-code.git
+        + type: git
+        
+        resource repository-of-script has been added:
+        + name: repository-of-script
+        + source:
+        +   branch: main
+        +   uri: git@github.com:moriyamaES/cicd-repo-for-manifesto.git
+        + type: git
+        
+        jobs:
+        job bump-version has been added:
+        + name: bump-version
+        + plan:
+        + - get: repository-with-a-version-bump
+        + - config:
+        +     image_resource:
+        +       name: ""
+        +       source:
+        +         repository: getourneau/alpine-bash-git
+        +       type: docker-image
+        +     inputs:
+        +     - name: repository-with-a-version-bump
+        +     outputs:
+        +     - name: repository-with-a-version-bump
+        +     params:
+        +       BUMP_TYPE: minor
+        +     platform: linux
+        +     run:
+        +       path: repository-of-script/concourse/pipline/bump-version.sh
+        +   task: bump-version
+        + - params:
+        +     repository: repository-with-a-version-bump
+        +   put: repository-with-a-version-bump
+        
+        pipeline name: bump-source-code-minor-version
 
-    ```sh
-    $ fly -t tutorial check-resource -r bump-source-code-minor-version/version-bump-repository
-    ```
+        error: invalid pipeline config:
+        invalid resources:
+                resource 'repository-of-script' is not used
+        ```
 
     - 結果
 
+- リソースのチェク
+
+    ```sh
+    $ fly -t tutorial check-resource -r bump-source-code-minor-version/repository-with-a-version-bump
+    ```
+
+    ```sh
+    $ fly -t tutorial check-resource -r bump-source-code-minor-version/repository-of-script
+    ```
+
+    - 結果
 
 - パイプラインの実行
 
