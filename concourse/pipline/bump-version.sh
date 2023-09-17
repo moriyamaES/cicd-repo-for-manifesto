@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# この時点ではconcorseがgit cloneを実行してるため、git cloneの実行は不要。
+# この時点でconcorseがgit cloneを実行してるため、git cloneの実行は不要。
 # gitのローカルリポジトリのディレクトリに移動
 cd repository-with-a-version-bump
 
