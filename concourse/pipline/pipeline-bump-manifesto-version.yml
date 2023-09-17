@@ -1,0 +1,46 @@
+---
+resources:
+  - name: repository-that-trigger
+    type: git
+    source:
+      # 読込みのみならば、uriはhttpでOK(秘密鍵が不要)
+      uri: https://github.com/moriyamaES/cicd-repo-for-source-code.git
+      branch: main
+      path: .version
+  - name: repository-with-a-version-bump
+    type: git
+    source:
+      # 書込みを行うgitリポジトリはsshで認証するため、uriはsshのuriに設定する必要がある(httpsの場合、正常動作しない）
+      uri: git@github.com:moriyamaES/cicd-repo-for-manifesto.git
+      branch: main
+      # GitHubに接続するための秘密鍵が必要。秘密鍵は外部で管理（Vaultで管理を想定）
+      private_key: ((private-key))
+jobs:
+  - name: bump-version
+    plan:
+      - get: repository-that-trigger
+        trigger: true
+      - get: repository-with-a-version-bump
+      - get: repository-of-script
+        resource: repository-with-a-version-bump
+      - task: bump-version
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            # bashとgitが実行できるコンテナをpull
+            source: {repository: getourneau/alpine-bash-git}
+          # gitリポジトリへの書込みを行う場合、inputsとoutputsは、同じ名前にしないと正常動作しない模様
+          inputs:
+            - name: repository-with-a-version-bump
+            - name: repository-of-script
+          outputs:
+            - name: repository-with-a-version-bump
+          params:
+            BUMP_TYPE: ((bump-type))
+          run:
+            path: repository-of-script/concourse/pipline/bump-version.sh
+      # 以下のPUTで、ローカルリポジトリからリポジトリへのpushを実行するため、git pushの実行は不要。
+      - put: repository-with-a-version-bump
+        params:
+          repository: repository-with-a-version-bump

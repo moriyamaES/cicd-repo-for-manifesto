@@ -2373,9 +2373,6 @@
     -rw-r--r--. 1 root root 1927  9月 17 13:23 pipeline-bump-source-code-version.yml
     ```
 
-
-
-
 - パイプライン用YAMLの中身は以下
 
     - 参考
@@ -2481,7 +2478,7 @@
         + name: repository-of-script
         + source:
         +   branch: main
-        +   uri: git@github.com:moriyamaES/cicd-repo-for-manifesto.git
+        +   uri: https://github.com/moriyamaES/cicd-repo-for-manifesto.git
         + type: git
         
         jobs:
@@ -2489,6 +2486,7 @@
         + name: bump-version
         + plan:
         + - get: repository-with-a-version-bump
+        + - get: repository-of-script
         + - config:
         +     image_resource:
         +       name: ""
@@ -2497,6 +2495,7 @@
         +       type: docker-image
         +     inputs:
         +     - name: repository-with-a-version-bump
+        +     - name: repository-of-script
         +     outputs:
         +     - name: repository-with-a-version-bump
         +     params:
@@ -2511,12 +2510,14 @@
         
         pipeline name: bump-source-code-minor-version
 
-        error: invalid pipeline config:
-        invalid resources:
-                resource 'repository-of-script' is not used
-        ```
+        pipeline created!
+        you can view your pipeline here: http://localhost:8080/teams/main/pipelines/bump-source-code-minor-version
 
-    - 結果
+        the pipeline is currently paused. to unpause, either:
+        - run the unpause-pipeline command:
+            fly -t tutorial unpause-pipeline -p bump-source-code-minor-version
+        - click play next to the pipeline in the web ui
+        ```
 
 - リソースのチェク
 
@@ -2543,3 +2544,68 @@
 
     - 結果
 
+        ```sh
+        started bump-source-code-minor-version/bump-version #1
+
+        selected worker: 4b95c7837820
+        Identity added: /tmp/git-resource-private-key (/tmp/git-resource-private-key)
+        Cloning into '/tmp/build/get'...
+        c50ef80 Bump version to v0.3.0
+        selected worker: 4b95c7837820
+        Cloning into '/tmp/build/get'...
+        386f2c8 Update script
+        initializing
+        initializing check: image
+        selected worker: 4b95c7837820
+        selected worker: 4b95c7837820
+        waiting for docker to come up...
+        Pulling getourneau/alpine-bash-git@sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7...
+        docker.io/getourneau/alpine-bash-git@sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7: Pulling from getourneau/alpine-bash-git
+        4fe2ade4980c: Pulling fs layer
+        03c196859ec8: Pulling fs layer
+        720d2de11875: Pulling fs layer
+        4fe2ade4980c: Verifying Checksum
+        4fe2ade4980c: Download complete
+        03c196859ec8: Verifying Checksum
+        03c196859ec8: Download complete
+        720d2de11875: Verifying Checksum
+        720d2de11875: Download complete
+        4fe2ade4980c: Pull complete
+        03c196859ec8: Pull complete
+        720d2de11875: Pull complete
+        Digest: sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7
+        Status: Downloaded newer image for getourneau/alpine-bash-git@sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7
+        docker.io/getourneau/alpine-bash-git@sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7
+
+        Successfully pulled getourneau/alpine-bash-git@sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7.
+
+        selected worker: 4b95c7837820
+        running repository-of-script/concourse/pipline/bump-version.sh
+        0.4.0
+        [detached HEAD 2277c1e] Bump version to v0.4.0
+        1 file changed, 1 insertion(+), 1 deletion(-)
+        selected worker: 4b95c7837820
+        Identity added: /tmp/git-resource-private-key (/tmp/git-resource-private-key)
+        To github.com:moriyamaES/cicd-repo-for-source-code.git
+        c50ef80..2277c1e  HEAD -> main
+        * [new tag]         v0.4.0 -> v0.4.0
+        selected worker: 4b95c7837820
+        Identity added: /tmp/git-resource-private-key (/tmp/git-resource-private-key)
+        Cloning into '/tmp/build/get'...
+        2277c1e Bump version to v0.4.0
+        succeeded
+        ```
+
+- 成功！！
+
+## ソースコードリポジトリでのバージョン番号の変更で、マニフェストリポジトリのバージョン番号を変更するパイプラインを作成する
+
+- `pipeline-bump-source-code-version.yml` をコピーする
+
+    ```sh
+    $ cp pipeline-bump-source-code-version.yml pipeline-bump-manifesto-version.yml
+    ```
+
+- 作成したパイプラインYAMLは以下
+
+    
