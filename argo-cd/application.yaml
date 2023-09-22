@@ -1,0 +1,34 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: myapp-argo-application
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/moriyamaES/cicd-repo-for-manifesto.git
+    targetRevision: main
+    path: dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: myapp
+  syncPolicy:
+    syncOptions:
+      # ネームスペースを自動で作成
+      - CreateNamespace=true
+      # アプリケーションのデプロイメントが行われる前に、
+      # Kubernetesリソースのバリデーションを実行し、リソースが有効かどうかが確認する。
+      - Validate=true
+    # 自動同期を有効にし、ファイルの変更を監視する。
+    automated:
+      # アプリケーションが意図しない状態になった場合に、ArgoCDが自動的に修復を試みる。
+      selfHeal: true 
+      # 古いリソースの削除を有効にする。
+      prune: true
+    syncWave:
+      # デプロイ前に特定のカスタムスクリプトや処理を実行するため、PreSyncフェーズを指定。
+      phase: PreSync
+    syncStrategy:
+      webhook:
+        preSync:
+          command: ["./exec-sync-when-version-change.sh"]

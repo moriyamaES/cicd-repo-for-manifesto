@@ -3182,3 +3182,206 @@
 
 ## Argo CD との連携
 
+### Argo CD の復習（Argo CD の起動）
+
+- 参考にしたサイト
+
+    - https://github.com/moriyamaES/k8s-argocd#readme
+
+
+- minkikube の起動
+
+    ```sh
+    $ minikube start --vm-driver=none
+    😄  Centos 7.9.2009 (hyperv/amd64) 上の minikube v1.31.2
+    ✨  既存のプロファイルを元に、none ドライバーを使用します
+
+    🧯  要求された 2200MiB のメモリー割当は、システムのオーバーヘッド (合計システムメモリー: 2909MiB) に十分な空きを残しません。安定性の問題に直面するかも知れません。
+    💡  提案: Start minikube with less memory allocated: 'minikube start --memory=2200mb'
+
+    👍  minikube クラスター中のコントロールプレーンの minikube ノードを起動しています
+    🔄  「minikube」のために既存の none bare metal machine を再起動しています...
+    ℹ️  OS リリースは CentOS Linux 7 (Core) です
+    🐳  Docker 24.0.5 で Kubernetes v1.27.4 を準備しています...
+    🔗  bridge CNI (コンテナーネットワークインターフェース) を設定中です...
+    🤹  ローカルホスト環境を設定中です...
+
+    ❗  'none' ドライバーは既存 VM の統合が必要なエキスパートに向けて設計されています。
+    💡  多くのユーザーはより新しい 'docker' ドライバーを代わりに使用すべきです (root 権限が必要ありません！)
+    📘  追加の詳細情報はこちらを参照してください: https://minikube.sigs.k8s.io/docs/reference/drivers/none/
+
+    ❗  kubectl と minikube の構成は /root に保存されます
+    ❗  kubectl か minikube コマンドを独自のユーザーとして使用するためには、そのコマンドの再配置が必要な場合があります。たとえば、独自の設定を上書きするためには、以下を実行します
+
+        ▪ sudo mv /root/.kube /root/.minikube $HOME
+        ▪ sudo chown -R $USER $HOME/.kube $HOME/.minikube
+
+    💡  これは環境変数 CHANGE_MINIKUBE_NONE_USER=true を設定して自動的に行うこともできます
+    🔎  Kubernetes コンポーネントを検証しています...
+        ▪ gcr.io/k8s-minikube/storage-provisioner:v5 イメージを使用しています
+    🌟  有効なアドオン: default-storageclass, storage-provisioner
+    🏄  終了しました！kubectl がデフォルトで「minikube」クラスターと「default」ネームスペースを使用するよう設定されました
+    ```
+
+- minikube ｎステータス確認
+
+    ```sh
+    $ minikube status 
+    minikube
+    type: Control Plane
+    host: Running
+    kubelet: Running
+    apiserver: Running
+    kubeconfig: Configured
+    ```
+
+- NameSpaceの作成
+
+    ```sh
+    $ kubectl create ns argocd
+    namespace/argocd created
+    ```
+
+- NameSpaceの作成の確認
+
+    ```sh
+    $ kubectl get ns | grep argo
+    argocd            Active   2m9s    
+    ```
+
+- ArgoCDのデプロイ
+
+    ```sh
+    $ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    ```
+
+    - 結果
+
+        ```sh
+        customresourcedefinition.apiextensions.k8s.io/applications.argoproj.io created
+
+        customresourcedefinition.apiextensions.k8s.io/applicationsets.argoproj.io created
+        customresourcedefinition.apiextensions.k8s.io/appprojects.argoproj.io created
+        serviceaccount/argocd-application-controller created
+        serviceaccount/argocd-applicationset-controller created
+        serviceaccount/argocd-dex-server created
+        serviceaccount/argocd-notifications-controller created
+        serviceaccount/argocd-redis created
+        serviceaccount/argocd-repo-server created
+        serviceaccount/argocd-server created
+        role.rbac.authorization.k8s.io/argocd-application-controller created
+        role.rbac.authorization.k8s.io/argocd-applicationset-controller created
+        role.rbac.authorization.k8s.io/argocd-dex-server created
+        role.rbac.authorization.k8s.io/argocd-notifications-controller created
+        role.rbac.authorization.k8s.io/argocd-server created
+        clusterrole.rbac.authorization.k8s.io/argocd-application-controller created
+        clusterrole.rbac.authorization.k8s.io/argocd-server created
+        rolebinding.rbac.authorization.k8s.io/argocd-application-controller created
+        rolebinding.rbac.authorization.k8s.io/argocd-applicationset-controller created
+        rolebinding.rbac.authorization.k8s.io/argocd-dex-server created
+        rolebinding.rbac.authorization.k8s.io/argocd-notifications-controller created
+        rolebinding.rbac.authorization.k8s.io/argocd-server created
+        clusterrolebinding.rbac.authorization.k8s.io/argocd-application-controller created
+        clusterrolebinding.rbac.authorization.k8s.io/argocd-server created
+        configmap/argocd-cm created
+        configmap/argocd-cmd-params-cm created
+        configmap/argocd-gpg-keys-cm created
+        configmap/argocd-notifications-cm created
+        configmap/argocd-rbac-cm created
+        configmap/argocd-ssh-known-hosts-cm created
+        configmap/argocd-tls-certs-cm created
+        secret/argocd-notifications-secret created
+        secret/argocd-secret created
+        service/argocd-applicationset-controller created
+        service/argocd-dex-server created
+        service/argocd-metrics created
+        service/argocd-notifications-controller-metrics created
+        service/argocd-redis created
+        service/argocd-repo-server created
+        service/argocd-server created
+        service/argocd-server-metrics created
+        deployment.apps/argocd-applicationset-controller created
+        deployment.apps/argocd-dex-server created
+        deployment.apps/argocd-notifications-controller created
+        deployment.apps/argocd-redis created
+        deployment.apps/argocd-repo-server created
+        deployment.apps/argocd-server created
+        statefulset.apps/argocd-application-controller created
+        networkpolicy.networking.k8s.io/argocd-application-controller-network-policy created
+        networkpolicy.networking.k8s.io/argocd-applicationset-controller-network-policy created
+        networkpolicy.networking.k8s.io/argocd-dex-server-network-policy created
+        networkpolicy.networking.k8s.io/argocd-notifications-controller-network-policy created
+        networkpolicy.networking.k8s.io/argocd-redis-network-policy created
+        networkpolicy.networking.k8s.io/argocd-repo-server-network-policy created
+        networkpolicy.networking.k8s.io/argocd-server-network-policy created 
+        ```
+
+- ArgoCDのデプロイの確認
+
+    ```sh
+    $ kubectl get svc -n argocd
+    ```
+
+    - 結果
+
+        ```sh
+        kubectl get svc -n argocd
+        NAME                                      TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+        argocd-applicationset-controller          ClusterIP   10.106.238.91    <none>        7000/TCP,8080/TCP            4m34s
+        argocd-dex-server                         ClusterIP   10.102.215.235   <none>        5556/TCP,5557/TCP,5558/TCP   4m34s
+        argocd-metrics                            ClusterIP   10.104.232.249   <none>        8082/TCP                     4m34s
+        argocd-notifications-controller-metrics   ClusterIP   10.110.202.232   <none>        9001/TCP                     4m34s
+        argocd-redis                              ClusterIP   10.100.59.25     <none>        6379/TCP                     4m34s
+        argocd-repo-server                        ClusterIP   10.100.222.80    <none>        8081/TCP,8084/TCP            4m34s
+        argocd-server                             ClusterIP   10.96.60.13      <none>        80/TCP,443/TCP               4m34s
+        argocd-server-metrics                     ClusterIP   10.108.251.73    <none>        8083/TCP                     4m34s
+        ```
+
+- Create Service with NodePort type (port: 30080)
+
+    ```sh
+    $ cd ~/kubernetes-basics/
+    ```
+
+    ```sh
+    # ll
+    合計 12
+    drwxr-xr-x. 2 root root  168  8月 12 08:40 03-environment-setup
+    drwxr-xr-x. 2 root root   64  8月 12 08:40 04-kubectl
+    drwxr-xr-x. 9 root root  154  8月 12 08:40 05-kubernetes-resources
+    drwxr-xr-x. 2 root root 4096  8月 12 10:50 06-run-simple-application-in-kubernetes
+    drwxr-xr-x. 2 root root 4096  8月 12 10:50 07-debug-kubernetes
+    drwxr-xr-x. 2 root root   23  8月 12 10:50 08-setup-eks-cluster
+    drwxr-xr-x. 2 root root  249  8月 12 08:40 09-assignment
+    drwxr-xr-x. 5 root root  191  8月 12 10:50 09-cicd
+    -rw-r--r--. 1 root root  750  8月 12 08:40 README.md
+    drwxr-xr-x. 2 root root   35  8月 12 08:40 argocd-test 
+    ```
+
+    ```sh
+    $ kubectl apply -f 09-cicd/argocd-install/argocd-server-node-port.yaml -n argocd
+    service/argocd-server-node-port created
+    ```
+
+- Port forward the service (port: 30080)
+
+    ```sh
+    kubectl -n argocd port-forward service/argocd-server 30080:80
+    ```
+
+- Login
+- Usernameは「admin」ですが、Passwordについては以下のコマンドで取得します。
+
+    Open http://localhost:30080, click on `Advanced` and `Proceed to localhost (unsafe)` (this is ok because we're connecting to the argocd running in our local computer)
+
+    - username: `admin`
+    - password: `kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 --decode`
+
+- 以降
+
+    - 以下のサイトの「検証環境の構築」以降を実施
+
+    https://selfnote.work/20220703/programming/kubernetes-microservices-volumes-2/#%E6%A4%9C%E8%A8%BC%E7%92%B0%E5%A2%83%E3%81%AE%E6%A7%8B%E7%AF%89
+
+
+- 
