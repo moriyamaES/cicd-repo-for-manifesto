@@ -3179,3 +3179,6 @@
         87ad96e Bump version to v0.6.0
         succeeded
         ```
+
+## Argo CD との連携
+
