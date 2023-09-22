@@ -811,7 +811,7 @@
 - 【現状の課題】Concourse CI のWebUIのURLを `http://localhost:8080` 以外にする方法を確認する。 
 
 
-## Concourse CI の停止
+### Concourse CI の停止
 
 - これまでの設定で起動していた Concourse CI を停止する
 
@@ -824,7 +824,7 @@
     ✔ Network concourse-install_default     Removed 
     ```
 
-## Concourse CI を起動する
+### Concourse CI を起動する
 
 - 以下のコマンドを実行
 
@@ -863,7 +863,7 @@
     fb41ea9837d9   postgres                             "docker-entrypoint.s…"   About a minute ago   Up About a minute                  5432/tcp                                    concourse-install-db-1
     ```
 
-## Concourse WebUIにログインする
+### Concourse WebUIにログインする
 
 - Concourse WebUIにログインする
 
@@ -886,7 +886,7 @@
         or enter token manually (input hidden): 
         target saved
 
-## Concurse CI からGitHubに書込むパイプラインの動作確認を行う
+### Concurse CI からGitHubに書込むパイプラインの動作確認を行う
 
 - パイプラインのYAMLをコピー
 
@@ -1900,7 +1900,7 @@
 
 </del>
 
-### パイプラインYAMLのファイル名、リソース名、バージョンの保存先フォルダ名を変更する
+## パイプラインYAMLのファイル名、リソース名、バージョンの保存先フォルダ名を変更する
 
 - 以下のコマンドを実行する
 
@@ -1965,7 +1965,7 @@
             params:
     ```
 
-## Concourse WebUIにログインする
+### Concourse WebUIにログインする
 
 - Concourse WebUIにログインする
 
@@ -1988,7 +1988,7 @@
         or enter token manually (input hidden): 
         target saved
 
-## Concourse にパイプラインを作成する
+### Concourse にパイプラインを作成する
 
 - パイプラインを削除する
 
@@ -2421,7 +2421,7 @@
                 repository: repository-with-a-version-bump
         ```
 
-## Concourse WebUIにログインする
+### Concourse WebUIにログインする
 
 - Concourse WebUIにログインする
 
@@ -2444,7 +2444,7 @@
         or enter token manually (input hidden): 
         target saved
 
-## Concourse にパイプラインを作成する
+### Concourse にパイプラインを作成する
 
 - パイプラインを削除する
 
@@ -2608,4 +2608,253 @@
 
 - 作成したパイプラインYAMLは以下
 
-    
+    ```sh
+    ```
+
+- パイプラインを削除する
+
+    ```sh
+    $ fly -t tutorial destroy-pipeline -p bump-manifesto-minor-version -n
+    ```
+
+- パイプラインを作成
+
+    ```sh
+    $ cd ~/cicd-repo-for-manifesto/concourse/pipline
+    ```
+
+    ```sh
+    $ fly -t tutorial set-pipeline -p bump-manifesto-minor-version -c pipeline-bump-manifesto-version.yml -v bump-type=minor -n
+    ```
+
+    - 結果
+
+        ```sh
+        resources:
+        resource repository-that-trigger has been added:
+        + name: repository-that-trigger
+        + source:
+        +   branch: main
+        +   path: .version
+        +   uri: https://github.com/moriyamaES/cicd-repo-for-source-code.git
+        + type: git
+        
+        resource repository-with-a-version-bump has been added:
+        + name: repository-with-a-version-bump
+        + source:
+        +   branch: main
+        +   private_key: ((private-key))
+        +   uri: git@github.com:moriyamaES/cicd-repo-for-manifesto.git
+        + type: git
+        
+        jobs:
+        job bump-version has been added:
+        + name: bump-version
+        + plan:
+        + - get: repository-that-trigger
+        +   trigger: true
+        + - get: repository-with-a-version-bump
+        + - get: repository-of-script
+        +   resource: repository-with-a-version-bump
+        + - config:
+        +     image_resource:
+        +       name: ""
+        +       source:
+        +         repository: getourneau/alpine-bash-git
+        +       type: docker-image
+        +     inputs:
+        +     - name: repository-with-a-version-bump
+        +     - name: repository-of-script
+        +     outputs:
+        +     - name: repository-with-a-version-bump
+        +     params:
+        +       BUMP_TYPE: minor
+        +     platform: linux
+        +     run:
+        +       path: repository-of-script/concourse/pipline/bump-version.sh
+        +   task: bump-version
+        + - params:
+        +     repository: repository-with-a-version-bump
+        +   put: repository-with-a-version-bump
+        
+        pipeline name: bump-manifesto-minor-version
+
+        pipeline created!
+        you can view your pipeline here: http://localhost:8080/teams/main/pipelines/bump-manifesto-minor-version
+
+        the pipeline is currently paused. to unpause, either:
+        - run the unpause-pipeline command:
+            fly -t tutorial unpause-pipeline -p bump-manifesto-minor-version
+        - click play next to the pipeline in the web ui
+        ```
+
+
+- リソースのチェク
+
+    ```sh
+    $ fly -t tutorial check-resource -r bump-manifesto-minor-version/repository-that-trigger
+    ```
+
+    - 結果
+
+        ```sh
+        checking bump-manifesto-minor-version/repository-that-trigger in build 1042
+        initializing check: repository-that-trigger
+        selected worker: 4b95c7837820
+        Cloning into '/tmp/git-resource-repo-cache'...
+        succeeded
+        ```
+
+    ```sh
+    $ fly -t tutorial check-resource -r bump-manifesto-minor-version/repository-with-a-version-bump
+    ```
+
+    - 結果
+
+        ```sh
+        checking bump-manifesto-minor-version/repository-with-a-version-bump in build 1051
+        initializing check: repository-with-a-version-bump
+        selected worker: 4b95c7837820
+        Identity added: /tmp/git-resource-private-key (/tmp/git-resource-private-key)
+        Cloning into '/tmp/git-resource-repo-cache'...
+        succeeded
+        ```
+
+- パイプラインの実行
+
+    ```sh
+    $ fly -t tutorial unpause-pipeline -p bump-manifesto-minor-version
+    unpaused 'bump-source-code-minor-version'
+    ```
+
+    ```sh
+    $ fly -t tutorial trigger-job -j bump-manifesto-minor-version/bump-version -w
+    ```
+
+    - 結果
+
+        ```sh
+        started bump-manifesto-minor-version/bump-version #3
+
+        selected worker: 4b95c7837820
+        INFO: found existing resource cache
+
+        selected worker: 4b95c7837820
+        INFO: found existing resource cache
+
+        selected worker: 4b95c7837820
+        INFO: found existing resource cache
+
+        initializing
+        initializing check: image
+        selected worker: 4b95c7837820
+        selected worker: 4b95c7837820
+        INFO: found existing resource cache
+
+        selected worker: 4b95c7837820
+        running repository-of-script/concourse/pipline/bump-version.sh
+        0.3.0
+        [detached HEAD 6533082] Bump version to v0.3.0
+        1 file changed, 1 insertion(+), 1 deletion(-)
+        selected worker: 4b95c7837820
+        Identity added: /tmp/git-resource-private-key (/tmp/git-resource-private-key)
+        To github.com:moriyamaES/cicd-repo-for-manifesto.git
+        4b35253..6533082  HEAD -> main
+        * [new tag]         v0.3.0 -> v0.3.0
+        selected worker: 4b95c7837820
+        Identity added: /tmp/git-resource-private-key (/tmp/git-resource-private-key)
+        Cloning into '/tmp/build/get'...
+        6533082 Bump version to v0.3.0
+        succeeded
+        ```
+
+- 成功！！
+
+
+## ソースコードリポジトリでのバージョン番号の変更をトリガにして、マニフェストリポジトリのバージョン番号を変更できることを確認した。
+
+- Concoce CI で確認したのでOK
+
+
+## 「ソースコードリポジトリでのバージョン番号の変更のジョブ」と「マニフェストリポジトリのバージョン番号を変更のジョブ」を一つにまとめる
+
+- `pipeline-bump-source-code-version.yml`をコピーする
+
+    ```sh
+    $ cd ~/cicd-repo-for-manifesto/concourse/pipline/
+    ```
+
+    ```sh
+    $ cp pipeline-bump-source-code-version.yml pipeline-bump-version.yml
+    ```
+
+
+
+### Concourse WebUIにログインする
+
+- Concourse WebUIにログインする
+
+    ```sh
+    $ fly --target tutorial login --concourse-url http://localhost:8080
+    ```
+
+    - 操作
+    - `http://localhost:8080/login?fly_port=43269` でホストOSのブラウザにアクセスし、表示されたtokenを貼り付ける
+    - ユーザID: `test`、パスワード: `test` とする
+    - 上記操作をすると、Concourse CI のWeb UIにログインできる
+
+        ```
+        logging in to team 'main'
+
+        navigate to the following URL in your browser:
+
+        http://localhost:8080/login?fly_port=43269
+
+        or enter token manually (input hidden): 
+        target saved
+
+### Concourse にパイプラインを作成する
+
+- パイプラインを削除する
+
+    ```sh
+    $ fly -t tutorial destroy-pipeline -p bump-minor-version -n
+    ```
+
+- パイプラインを作成
+
+    ```sh
+    $ cd ~/cicd-repo-for-manifesto/concourse/pipline
+    ```
+
+    ```sh
+    $ fly -t tutorial set-pipeline -p bump-minor-version -c pipeline-bump-version.yml -v bump-type=minor -n
+    ```
+
+    - 結果
+
+
+- リソースのチェク
+
+    ```sh
+    $ fly -t tutorial check-resource -r bump-minor-version/repository-of-source-code
+    ```
+
+    ```sh
+    $ fly -t tutorial check-resource -r bump-minor-version/repository-of-manifesto
+    ```
+
+    - 結果
+
+- パイプラインの実行
+
+    ```sh
+    $ fly -t tutorial unpause-pipeline -p bump-minor-version
+    unpaused 'bump-source-code-minor-version'
+    ```
+
+    ```sh
+    $ fly -t tutorial trigger-job -j bump-minor-version/bump-version-of-source-code -w
+    ```
+
+    - 結果

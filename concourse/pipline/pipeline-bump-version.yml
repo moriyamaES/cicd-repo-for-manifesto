@@ -1,0 +1,75 @@
+---
+resources:
+  # - name: repository-of-source-code
+  #   type: git
+  #   source:
+  #     # 書込みを行うgitリポジトリはsshで認証するため、uriはsshのuriに設定する必要がある(httpsの場合、正常動作しない）
+  #     uri: git@github.com:moriyamaES/cicd-repo-for-source-code.git
+  #     branch: main
+  #     # GitHubに接続するための秘密鍵が必要。秘密鍵は外部で管理（Vaultで管理を想定）
+  #     private_key: ((private-key))
+  - name: repository-of-manifesto
+    type: git
+    source:
+      # 書込みを行うgitリポジトリはsshで認証するため、uriはsshのuriに設定する必要がある(httpsの場合、正常動作しない）
+      uri: git@github.com:moriyamaES/cicd-repo-for-manifesto.git
+      branch: main
+      # GitHubに接続するための秘密鍵が必要。秘密鍵は外部で管理（Vaultで管理を想定）
+      private_key: ((private-key))
+jobs:
+  - name: bump-version-of-source-code
+    serial: true
+    plan:
+      - get: repository-with-a-version-bump
+        # resource: repository-of-source-code
+        resource: repository-of-manifesto
+      - get: repository-of-script
+        resource: repository-of-manifesto
+      - task: bump-version-of-source-code
+        config:
+          platform: linux
+          image_resource:
+            type: docker-image
+            # bashとgitが実行できるコンテナをpull
+            source: {repository: getourneau/alpine-bash-git}
+          # gitリポジトリへの書込みを行う場合、inputsとoutputsは、同じ名前にしないと正常動作しない模様
+          inputs:
+            - name: repository-with-a-version-bump
+            - name: repository-of-script
+          outputs:
+            - name: repository-with-a-version-bump
+          params:
+            BUMP_TYPE: ((bump-type))
+          run:
+            path: repository-of-script/concourse/pipline/bump-version.sh
+      # 以下のPUTで、ローカルリポジトリからリポジトリへのpushを実行するため、git pushの実行は不要。
+      - put: repository-with-a-version-bump
+        params:
+          repository: repository-with-a-version-bump
+  # - name: bump-version-of-manifesto
+  #   plan:
+  #     - get: repository-with-a-version-bump
+  #       resource: repository-of-manifesto
+  #     - get: repository-of-script
+  #       resource: repository-of-manifesto
+  #     - task: bump-version-of-manifesto
+  #       config:
+  #         platform: linux
+  #         image_resource:
+  #           type: docker-image
+  #           # bashとgitが実行できるコンテナをpull
+  #           source: {repository: getourneau/alpine-bash-git}
+  #         # gitリポジトリへの書込みを行う場合、inputsとoutputsは、同じ名前にしないと正常動作しない模様
+  #         inputs:
+  #           - name: repository-with-a-version-bump
+  #           - name: repository-of-script
+  #         outputs:
+  #           - name: repository-with-a-version-bump
+  #         params:
+  #           BUMP_TYPE: ((bump-type))
+  #         run:
+  #           path: repository-of-script/concourse/pipline/bump-version.sh
+  #     # 以下のPUTで、ローカルリポジトリからリポジトリへのpushを実行するため、git pushの実行は不要。
+  #     - put: repository-with-a-version-bump
+  #       params:
+  #         repository: repository-with-a-version-bump
