@@ -5,7 +5,7 @@
 cd repository-of-manifesto
 
 # 現在のバージョンを取得
-current_version=$(cat ./.version/number)
+current_version=$(cat ./dev/.version/number)
 
 # バージョンをバンプするタイプを指定
 BUMP_TYPE=${BUMP_TYPE:-"major"}  # デフォルトはメジャーバージョンをバンプ
@@ -46,11 +46,11 @@ else
 fi
 
 # 新しいバージョンをファイルに書き込む
-echo "$new_version" > ./.version/number
-cat ./.version/number
+echo "$new_version" > ./dev/.version/number
+cat ./dev/.version/number
 
 # コミットしタグを付加する
 git config --global user.email "concourse@local" # メールアドレスは必須（ユーザ名は任意）
-git add ./.version/number
+git add ./dev/.version/number
 git commit -m "Bump version to v$new_version"
 git tag v$new_version

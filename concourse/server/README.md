@@ -3384,4 +3384,33 @@
     https://selfnote.work/20220703/programming/kubernetes-microservices-volumes-2/#%E6%A4%9C%E8%A8%BC%E7%92%B0%E5%A2%83%E3%81%AE%E6%A7%8B%E7%AF%89
 
 
-- 
+- `application.yaml`の作成
+- `.version`フォルダの更新をトリガとしている
+
+
+    ```sh
+    cd ~/cicd-repo-for-manifesto/argo-cd
+    ```
+
+    ```sh
+    apiVersion: argoproj.io/v1alpha1
+    kind: Application
+    metadata:
+    name: myapp-argo-application
+    namespace: argocd
+    spec:
+    project: default
+    source:
+        repoURL: https://github.com/moriyamaES/cicd-repo-for-manifesto.git
+        targetRevision: HEAD
+        path: .version
+    destination:
+        server: https://kubernetes.default.svc
+        namespace: myapp
+    
+    syncPolicy:
+        syncOptions:
+        - CreateNamespace=true
+        automated:
+        selfHeal: true
+    ```
