@@ -6,7 +6,7 @@ resources:
   #     # 読込みのみならば、uriはhttpでOK(秘密鍵が不要)
   #     uri: https://github.com/moriyamaES/cicd-repo-for-source-code.git
   #     branch: main
- - name: repository-of-manifesto
+  - name: repository-of-manifesto
     type: git
     source:
       # 書込みを行うgitリポジトリはsshで認証するため、uriはsshのuriに設定する必要がある(httpsの場合、正常動作しない）
@@ -33,7 +33,7 @@ jobs:
           params:
             BUMP_TYPE: ((bump-type))
           run:
-            path: repository-of-script/concourse/pipline/bump-version-of-manifesto.sh
+            path: repository-of-manifesto/concourse/pipline/bump-version-of-manifesto.sh
       # 以下のPUTで、ローカルリポジトリからリポジトリへのpushを実行するため、git pushの実行は不要。
       - put: repository-of-manifesto
         params:
