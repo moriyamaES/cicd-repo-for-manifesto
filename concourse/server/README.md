@@ -2421,6 +2421,7 @@
                 repository: repository-with-a-version-bump
         ```
 
+
 ### Concourse WebUIにログインする
 
 - Concourse WebUIにログインする
@@ -2776,7 +2777,7 @@
 - Concoce CI で確認したのでOK
 
 
-## 「ソースコードリポジトリでのバージョン番号の変更のジョブ」と「マニフェストリポジトリのバージョン番号を変更のジョブ」を一つにまとめる
+## 「ソースコードリポジトリの内容の取込み」と「マニフェストリポジトリのバージョン番号を変更のジョブ」を一つにまとめる
 
 - `pipeline-bump-source-code-version.yml`をコピーする
 
@@ -2788,7 +2789,226 @@
     $ cp pipeline-bump-source-code-version.yml pipeline-bump-version.yml
     ```
 
+### Vaultを起動
 
+- 以下を参考に実行
+
+    - https://github.com/moriyamaES/vault-install#approle%E8%AA%8D%E8%A8%BC%E3%83%90%E3%83%83%E3%82%AF%E3%82%A8%E3%83%B3%E3%83%89%E3%81%AE%E4%BD%BF%E7%94%A8
+
+
+- vaultコマンドに今どこのvaultを設定するのかってのを教えてやる。それは環境変数です
+
+    ```sh
+    $ export VAULT_ADDR='http://10.1.1.200:8200';echo $VAULT_ADDR
+    http://10.1.1.200:8200
+    ```
+
+- vaultを起動する
+
+    ```sh
+    $ sudo systemctl start vault.service;sudo systemctl status vault.service
+    ```
+
+    - 結果
+
+        ```sh
+        ● vault.service - "HashiCorp Vault - A tool for managing secrets"
+        Loaded: loaded (/usr/lib/systemd/system/vault.service; disabled; vendor preset: disabled)
+        Active: active (running) since 金 2023-09-22 20:27:23 JST; 74ms ago
+            Docs: https://www.vaultproject.io/docs/
+        Main PID: 22295 (vault)
+            Tasks: 7
+        Memory: 249.9M
+        CGroup: /system.slice/vault.service
+                └─22295 /usr/bin/vault server -config=/etc/vault.d/vault.hcl
+
+        9月 22 20:27:23 control-plane.minikube.internal vault[22295]: Listener 1: tcp (addr: "10.1.1.200:820...")
+        9月 22 20:27:23 control-plane.minikube.internal vault[22295]: Log Level:
+        9月 22 20:27:23 control-plane.minikube.internal vault[22295]: Mlock: supported: true, enabled: false
+        9月 22 20:27:23 control-plane.minikube.internal vault[22295]: Recovery Mode: false
+        9月 22 20:27:23 control-plane.minikube.internal vault[22295]: Storage: file
+        9月 22 20:27:23 control-plane.minikube.internal vault[22295]: Version: Vault v1.14.2, built 2023-08-...2Z
+        9月 22 20:27:23 control-plane.minikube.internal vault[22295]: Version Sha: 16a7033a0686eca50ee650880...89
+        9月 22 20:27:23 control-plane.minikube.internal vault[22295]: ==> Vault server started! Log data wil...w:
+        9月 22 20:27:23 control-plane.minikube.internal vault[22295]: 2023-09-22T20:27:23.794+0900 [INFO]  p...""
+        9月 22 20:27:23 control-plane.minikube.internal vault[22295]: 2023-09-22T20:27:23.795+0900 [INFO]  c...re
+        Hint: Some lines were ellipsized, use -l to show in full.
+        ```
+
+- vault unsealする
+
+    - 前の手順より、Unseal Key と Root Token　は以下
+
+    ```sh
+    Unseal Key 1: tYN2ZXR6UOJKiMZzhQvu1nZ+5bymI/B8nSM0zQBlP+cH
+    Unseal Key 2: zRm7x5T4yjtLWTwwwWaY5K/YL/dplOd+KQ6VyykVeCFH
+    Unseal Key 3: 7xXvhns+T4hp8YT4Pd38EqmURNIU20o92itb8PTNmlt4
+    Unseal Key 4: Y7iHvD3EVISub6uSjqt4aVxtnC+0B8OF7m6TXmYL5f9+
+    Unseal Key 5: K9/xHj95ermVqZTnQlk8ZHJ4xtu4e6d0x+ylMKB90G4r
+
+    Initial Root Token: hvs.AkzMQJ2dOofPjOjsLK7pzmWz
+    ```
+
+- 以下のコマンドを実行（5つのUnseal Keyの内、3つのUnseal Keyを3回に分け入力）
+
+    ```sh
+    $ vault operator unseal
+    ```
+
+- `role-id`を確認（前回起動時からかわっていない）
+
+    ```sh
+    $ vault read auth/approle/role/concourse/role-id
+    ```
+
+    - 結果
+
+        ```sh
+        Key        Value
+        ---        -----
+        role_id    2bf6997c-c123-5e25-3e22-ebe3c539ff16
+        ```
+
+
+- `secret_id`を確認（前回起動から変わている）
+
+    ```sh
+    $ vault write -f auth/approle/role/concourse/secret-id
+    ```
+
+    - 結果
+
+        ```sh
+        Key                   Value
+        ---                   -----
+        secret_id             9edfc1bf-bc60-fb8a-75b5-454ba3a47a95
+        secret_id_accessor    6989c5bf-37fb-b51a-600e-998c02636244
+        secret_id_num_uses    0
+        secret_id_ttl         0s
+        ```
+
+### Concouseを起動
+
+
+- 先程のトークンをconcourseCIに設定します！docker-composeファイルに以下を追記するだけです。
+- ここでは`secret_id`のみ変更する。
+
+    ```sh
+    cd ~/concourse-install
+    ```
+
+- 変更箇所は以下
+
+    ```sh
+    git diff HEAD 
+    ```
+    
+    ```diff
+    diff --git a/docker-compose.yml b/docker-compose.yml
+    index 3ea0954..c108d39 100644
+    --- a/docker-compose.yml
+    +++ b/docker-compose.yml
+    @@ -30,7 +30,7 @@ services:
+        CONCOURSE_MAIN_TEAM_LOCAL_USER: test
+        CONCOURSE_VAULT_URL: http://10.1.1.200:8200
+        CONCOURSE_VAULT_AUTH_BACKEND: "approle"
+    -      CONCOURSE_VAULT_AUTH_PARAM: "role_id:2bf6997c-c123-5e25-3e22-ebe3c539ff16,secret_id:18cbe4e2-27da-bb78-18d2-9b0cd47f8f6c"
+    +      CONCOURSE_VAULT_AUTH_PARAM: "role_id:2bf6997c-c123-5e25-3e22-ebe3c539ff16,secret_id:9edfc1bf-bc60-fb8a-75b5-454ba3a47a95"
+    ```
+
+- 変更後の`docker-compose.yml`は以下
+
+    ```sh
+    $ cat docker-compose.yml 
+    version: '3'
+
+    services:
+    db:
+        image: postgres
+        environment:
+        POSTGRES_DB: concourse
+        POSTGRES_USER: concourse_user
+        POSTGRES_PASSWORD: concourse_pass
+        logging:
+        driver: "json-file"
+        options:
+            max-file: "5"
+            max-size: "10m"
+
+    web:
+        image: concourse/concourse
+        command: web
+        links: [db]
+        depends_on: [db]
+        ports: ["8080:8080"]
+        volumes: ["./keys/web:/concourse-keys"]
+        environment:
+        CONCOURSE_EXTERNAL_URL: http://localhost:8080
+        CONCOURSE_POSTGRES_HOST: db
+        CONCOURSE_POSTGRES_USER: concourse_user
+        CONCOURSE_POSTGRES_PASSWORD: concourse_pass
+        CONCOURSE_POSTGRES_DATABASE: concourse
+        CONCOURSE_ADD_LOCAL_USER: test:test
+        CONCOURSE_MAIN_TEAM_LOCAL_USER: test
+        CONCOURSE_VAULT_URL: http://10.1.1.200:8200
+        CONCOURSE_VAULT_AUTH_BACKEND: "approle"
+        CONCOURSE_VAULT_AUTH_PARAM: "role_id:2bf6997c-c123-5e25-3e22-ebe3c539ff16,secret_id:9edfc1bf-bc60-fb8a-75b5-454ba3a47a95"
+
+        logging:
+        driver: "json-file"
+        options:
+            max-file: "5"
+            max-size: "10m"
+
+    worker:
+        image: concourse/concourse
+        command: worker
+        privileged: true
+        depends_on: [web]
+        volumes: ["./keys/worker:/concourse-keys"]
+        links: [web]
+        stop_signal: SIGUSR2
+        environment:
+        CONCOURSE_TSA_HOST: web:2222
+        # enable DNS proxy to support Docker's 127.x.x.x DNS server
+        CONCOURSE_GARDEN_DNS_PROXY_ENABLE: "true"
+        logging:
+        driver: "json-file"
+        options:
+            max-file: "5"
+            max-size: "10m"
+    
+    ```
+
+- concourse を再起動
+
+
+    ```sh
+    $ docker-compose down
+    ```
+
+    ```sh
+    $ docker-compose up -d
+    ```
+
+    - 結果
+
+        ```sh
+        [+] Running 4/4
+        ✔ Network concourse-install_default     Created                                                      0.1s 
+        ✔ Container concourse-install-db-1      Started                                                      0.1s 
+        ✔ Container concourse-install-web-1     Started                                                      0.1s 
+        ✔ Container concourse-install-worker-1  Started                                                      0.0s 
+        ```
+
+- ステータスを確認する
+
+    ```sh
+    $ docker ps -a | grep conc
+    324a78deb236   concourse/concourse                  "dumb-init /usr/loca…"   About a minute ago   Up About a minute                                                              concourse-install-worker-1
+    c0542ede38c3   concourse/concourse                  "dumb-init /usr/loca…"   About a minute ago   Up About a minute                  0.0.0.0:8080->8080/tcp, :::8080->8080/tcp   concourse-install-web-1
+    3ba7361d338e   postgres                             "docker-entrypoint.s…"   About a minute ago   Up About a minute                  5432/tcp                                    concourse-install-db-1
+    ```
 
 ### Concourse WebUIにログインする
 
@@ -2818,7 +3038,7 @@
 - パイプラインを削除する
 
     ```sh
-    $ fly -t tutorial destroy-pipeline -p bump-minor-version -n
+    $ fly -t tutorial destroy-pipeline -p update-manifesto -n
     ```
 
 - パイプラインを作成
@@ -2828,33 +3048,134 @@
     ```
 
     ```sh
-    $ fly -t tutorial set-pipeline -p bump-minor-version -c pipeline-bump-version.yml -v bump-type=minor -n
+    $ fly -t tutorial set-pipeline -p update-manifesto -c update-manifesto.yml -v bump-type=minor -n
     ```
 
     - 結果
+
+        ```sh
+        resources:
+        resource repository-of-manifesto has been added:
+        + name: repository-of-manifesto
+        + source:
+        +   branch: main
+        +   private_key: ((private-key))
+        +   uri: git@github.com:moriyamaES/cicd-repo-for-manifesto.git
+        + type: git
+        
+        jobs:
+        job bump-version-of-manifesto has been added:
+        + name: bump-version-of-manifesto
+        + plan:
+        + - get: repository-of-manifesto
+        + - config:
+        +     image_resource:
+        +       name: ""
+        +       source:
+        +         repository: getourneau/alpine-bash-git
+        +       type: docker-image
+        +     inputs:
+        +     - name: repository-of-manifesto
+        +     outputs:
+        +     - name: repository-of-manifesto
+        +     params:
+        +       BUMP_TYPE: minor
+        +     platform: linux
+        +     run:
+        +       path: repository-of-manifesto/concourse/pipline/bump-version-of-manifesto.sh
+        +   task: bump-version-of-manifesto
+        + - params:
+        +     repository: repository-of-manifesto
+        +   put: repository-of-manifesto
+        
+        pipeline name: update-manifesto
+
+        pipeline created!
+        you can view your pipeline here: http://localhost:8080/teams/main/pipelines/update-manifesto
+
+        the pipeline is currently paused. to unpause, either:
+        - run the unpause-pipeline command:
+            fly -t tutorial unpause-pipeline -p update-manifesto
+        - click play next to the pipeline in the web ui
+        ```
 
 
 - リソースのチェク
 
     ```sh
-    $ fly -t tutorial check-resource -r bump-minor-version/repository-of-source-code
-    ```
-
-    ```sh
-    $ fly -t tutorial check-resource -r bump-minor-version/repository-of-manifesto
+    $ fly -t tutorial check-resource -r update-manifesto/repository-of-manifesto
     ```
 
     - 結果
+
+        ```sh
+        $ fly -t tutorial check-resource -r update-manifesto/repository-of-manifesto
+        checking update-manifesto/repository-of-manifesto in build 1
+        initializing check: repository-of-manifesto
+        selected worker: 324a78deb236
+        Identity added: /tmp/git-resource-private-key (/tmp/git-resource-private-key)
+        Cloning into '/tmp/git-resource-repo-cache'...
+        succeeded
+        ```
 
 - パイプラインの実行
 
     ```sh
-    $ fly -t tutorial unpause-pipeline -p bump-minor-version
+    $ fly -t tutorial unpause-pipeline -p update-manifesto
     unpaused 'bump-source-code-minor-version'
     ```
 
     ```sh
-    $ fly -t tutorial trigger-job -j bump-minor-version/bump-version-of-source-code -w
+    $ fly -t tutorial trigger-job -j update-manifesto/bump-version-of-manifesto -w
     ```
 
     - 結果
+
+        ```sh
+        started update-manifesto/bump-version-of-manifesto #1
+
+        selected worker: 324a78deb236
+        Identity added: /tmp/git-resource-private-key (/tmp/git-resource-private-key)
+        Cloning into '/tmp/build/get'...
+        c5dd6ba Merge pull request #2 from moriyamaES/add-feature
+        initializing
+        initializing check: image
+        selected worker: 324a78deb236
+        selected worker: 324a78deb236
+        waiting for docker to come up...
+        Pulling getourneau/alpine-bash-git@sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7...
+        docker.io/getourneau/alpine-bash-git@sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7: Pulling from getourneau/alpine-bash-git
+        4fe2ade4980c: Pulling fs layer
+        03c196859ec8: Pulling fs layer
+        720d2de11875: Pulling fs layer
+        4fe2ade4980c: Verifying Checksum
+        4fe2ade4980c: Download complete
+        4fe2ade4980c: Pull complete
+        720d2de11875: Verifying Checksum
+        720d2de11875: Download complete
+        03c196859ec8: Verifying Checksum
+        03c196859ec8: Download complete
+        03c196859ec8: Pull complete
+        720d2de11875: Pull complete
+        Digest: sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7
+        Status: Downloaded newer image for getourneau/alpine-bash-git@sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7
+        docker.io/getourneau/alpine-bash-git@sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7
+
+        Successfully pulled getourneau/alpine-bash-git@sha256:246ebea4839401a027da43e406a0ceaf0f763997a516cf85c344425eb913ffe7.
+
+        selected worker: 324a78deb236
+        running repository-of-manifesto/concourse/pipline/bump-version-of-manifesto.sh
+        0.6.0
+        [detached HEAD 87ad96e] Bump version to v0.6.0
+        1 file changed, 1 insertion(+), 1 deletion(-)
+        selected worker: 324a78deb236
+        Identity added: /tmp/git-resource-private-key (/tmp/git-resource-private-key)
+        To github.com:moriyamaES/cicd-repo-for-manifesto.git
+        c5dd6ba..87ad96e  HEAD -> main
+        * [new tag]         v0.6.0 -> v0.6.0
+        selected worker: 324a78deb236
+        Identity added: /tmp/git-resource-private-key (/tmp/git-resource-private-key)
+        Cloning into '/tmp/build/get'...
+        87ad96e Bump version to v0.6.0
+        succeeded
+        ```
