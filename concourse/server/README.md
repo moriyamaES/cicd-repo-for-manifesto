@@ -3180,7 +3180,12 @@
         succeeded
         ```
 
+
 ## Argo CD との連携
+
+    - 2023-09-24：Argo CD の使い方を調査するため、Argo CDを書籍で学習することとした。このため、ここでの調査は一旦中断
+
+<del>
 
 ### Argo CD の復習（Argo CD の起動）
 
@@ -3385,6 +3390,9 @@
 
 
 - `application.yaml`の作成
+
+<deL>
+
 - `.version`フォルダの更新をトリガとしている
 
 
@@ -3414,3 +3422,18 @@
         automated:
         selfHeal: true
     ```
+
+</del>
+
+
+- 以下のコマンドを実行
+
+    ```sh
+    $ cd ~/cicd-repo-for-manifesto/argo-cd/
+    ```
+
+    ```sh
+    $ kubectl apply -f application.yaml
+    ```
+
+</del>

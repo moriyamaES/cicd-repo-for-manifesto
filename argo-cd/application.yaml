@@ -25,10 +25,24 @@ spec:
       selfHeal: true 
       # 古いリソースの削除を有効にする。
       prune: true
-    syncWave:
-      # デプロイ前に特定のカスタムスクリプトや処理を実行するため、PreSyncフェーズを指定。
-      phase: PreSync
-    syncStrategy:
-      webhook:
-        preSync:
-          command: ["./exec-sync-when-version-change.sh"]
+    # syncWave:
+    #   # デプロイ前に特定のカスタムスクリプトや処理を実行するため、PreSyncフェーズを指定。
+    #   phase: PreSync
+    # syncStrategy:
+    #   webhook:
+    #     preSync:
+    #       command: ["./exec-sync-when-version-change.sh"]
+    syncHooks:
+      - name: my-pre-sync-hook
+        manifest:
+          apiVersion: batch/v1
+          kind: Job
+          metadata:
+            name: my-pre-sync-job
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: pre-sync-container
+                    image: alpine:latest
+                    command: ["/bin/sh", "-c", "./exec-sync-when-version-change.sh"]
